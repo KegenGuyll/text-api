@@ -36,4 +36,14 @@ function TextAPI.ServerShowOverheadText(playerOrName, text, opts)
   return true
 end
 
+-- Clears all active and queued messages on all clients
+function TextAPI.ClearAll()
+  if sendServerCommand and type(sendServerCommand) == "function" then
+    -- Broadcast a ClearAll command; clients will wipe their state
+    sendServerCommand("TextAPI", Shared.Net.ClearAll, {})
+    return true
+  end
+  return false
+end
+
 return TextAPI

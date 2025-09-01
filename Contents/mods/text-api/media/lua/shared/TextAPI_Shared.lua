@@ -13,8 +13,8 @@ TextAPI.Version = "0.1.0"
 --     duration=seconds (default 3),
 --     color={r,g,b,a} 0..1,
 --     scale=number,
---     headZ=number (default 0.85),
---     pixelOffset=number (default 14),
+--     headZ=number (default 0.75),
+--     pixelOffset=number (default 8),
 --     behavior="queue"|"stack" (default "queue")
 --   }
 -- Returns: boolean success
@@ -41,7 +41,8 @@ end
 
 -- Networking keys
 TextAPI.Net = {
-  Show = "TextAPI_ShowOverhead"
+  Show = "TextAPI_ShowOverhead",
+  ClearAll = "TextAPI_ClearAll"
 }
 
 return TextAPI

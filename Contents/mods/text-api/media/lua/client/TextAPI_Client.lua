@@ -8,7 +8,7 @@ local Shared = require "TextAPI_Shared"
 
 TextAPI._active = TextAPI._active or {}
 TextAPI._queues = TextAPI._queues or {}
-TextAPI._maxPerPlayer = TextAPI._maxPerPlayer or 3 -- cap queued items per player
+TextAPI._globalMaxPending = TextAPI._globalMaxPending or 500 -- safety cap across all players (pending only)
 TextAPI._debug = TextAPI._debug or { enabled = false, stackSpacingOverride = nil, logGroups = false }
 
 function TextAPI.SetDebug(enabled, stackSpacing)
@@ -59,25 +59,35 @@ end
 local function enqueueForPlayer(ply, text, opts)
   local o = Shared._normalizeOpts(opts)
   local key = getPlayerKey(ply)
-  TextAPI._queues[key] = TextAPI._queues[key] or { active = false, items = {} }
+  TextAPI._queues[key] = TextAPI._queues[key] or { current = nil, pending = {} }
   local q = TextAPI._queues[key]
 
-  -- Enforce per-player cap
-  if #q.items >= TextAPI._maxPerPlayer then
-    -- drop oldest
-    table.remove(q.items, 1)
-  end
-
-  table.insert(q.items, { text = text, opts = o })
-
+  -- Stack: show immediately, do not interact with queue
   if o.behavior == "stack" then
     addActiveEntry(makeEntry(ply, text, o))
     return
   end
 
-  if not q.active then
-    q.active = true
-    addActiveEntry(makeEntry(ply, text, o))
+  -- Queue: if no current, start now; else append to pending (cap applies to pending only)
+  if not q.current then
+    local entry = makeEntry(ply, text, o)
+    q.current = entry
+    addActiveEntry(entry)
+  else
+    -- Unlimited FIFO per player; but enforce a global safety cap
+    -- Count total pending across all players
+    local totalPending = 0
+    for _, v in pairs(TextAPI._queues) do
+      if v.pending then totalPending = totalPending + #v.pending end
+    end
+    if totalPending >= (TextAPI._globalMaxPending or 500) then
+      -- reject newest to avoid unbounded growth
+      if TextAPI._debug.enabled then
+        print("[TextAPI][queue] global cap reached; dropping new pending item")
+      end
+    else
+      table.insert(q.pending, { text = text, opts = o })
+    end
   end
 end
 
@@ -184,20 +194,20 @@ local function onUpdate()
     if now <= entry.expireAt and (entry.screenCenter or (entry.player and not entry.player:isDead())) then
       table.insert(keep, entry)
     else
+      -- Expired entry
       if entry.player and entry.behavior ~= "stack" then
         local key = getPlayerKey(entry.player)
         local q = TextAPI._queues[key]
-        if q and q.items and #q.items > 0 then
-          table.remove(q.items, 1)
-          local nextItem = q.items[1]
-          if nextItem then
-            table.insert(keep, makeEntry(entry.player, nextItem.text, nextItem.opts))
-            q.active = true
-          else
-            q.active = false
+        if q then
+          -- Clear current if it matches this entry
+          if q.current == entry then q.current = nil end
+          -- Start next pending if available
+          if q.pending and #q.pending > 0 then
+            local nextItem = table.remove(q.pending, 1)
+            local nextEntry = makeEntry(entry.player, nextItem.text, nextItem.opts)
+            q.current = nextEntry
+            table.insert(keep, nextEntry)
           end
-        elseif q then
-          q.active = false
         end
       end
     end
@@ -251,6 +261,10 @@ if isClient() then
   Events.OnServerCommand.Add(function(module, command, args)
     if module == "TextAPI" and command == Shared.Net.Show then
       onReceiveShowText(args)
+    elseif module == "TextAPI" and command == Shared.Net.ClearAll then
+      -- Clear actives and queues
+      TextAPI._active = {}
+      TextAPI._queues = {}
     end
   end)
 end

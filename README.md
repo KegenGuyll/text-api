@@ -4,35 +4,87 @@ A lightweight API to display floating text above players' heads. Intended as a s
 
 ## Features
 - Client-side drawing of short text above a specific player's head
+- Behaviors: queue (one-at-a-time FIFO) and stack (simultaneous with vertical spacing)
+- Screen-centered test draw for debugging
+- Zoom-stable overhead placement with `headZ` + `pixelOffset`
 - Server-to-client command to trigger text in multiplayer
-- Simple API surface with duration and color options
+- Global safety cap for pending queue items across all players
+- Server `ClearAll` command to wipe all client queues/actives
 
 ## Public API
 
-Shared (client-only immediate draw):
+Client:
 - `TextAPI.ShowOverheadText(playerObj, text, opts)`
   - `playerObj`: IsoPlayer (local)
   - `text`: string
-  - `opts`: table `{ duration=3, color={r,g,b,a}, scale=1 }`
+  - `opts` (all optional):
+    - `duration`: number (seconds, default 3)
+    - `color`: `{r,g,b,a}` (0..1, default `{1,1,1,1}`)
+    - `behavior`: `"queue"` (default) | `"stack"`
+    - `headZ`: world height offset above ground for anchor (default `0.75`)
+    - `pixelOffset`: extra pixels upward after projection (default `8`)
+    - `scale`: reserved for future
+- `TextAPI.ShowScreenText(text, opts)`
+  - Draws text centered on the screen (for testing).
 
 Server:
 - `TextAPI.ServerShowOverheadText(playerOrUsername, text, opts)`
   - `playerOrUsername`: IsoPlayer or username string
+- `TextAPI.ClearAll()`
+  - Broadcasts a command to clients to clear all active and queued messages.
+
+## Behavior details
+- Queue (default):
+  - One message per player at a time; next starts when the current expires.
+  - Unlimited FIFO per-player queue (items are only removed after being displayed).
+- Stack:
+  - Messages display simultaneously for a player, with vertical spacing to avoid overlap.
 
 ## Usage Examples
 
-Client (e.g., from another client mod file):
+Client (queue example):
 ```lua
-local player = getPlayer() -- local player
-TextAPI.ShowOverheadText(player, "Hello there!", { duration = 3, color = {1,0.8,0.2,1} })
+local p = getPlayer()
+TextAPI.ShowOverheadText(p, "Q1", { duration = 2 })
+TextAPI.ShowOverheadText(p, "Q2", { duration = 2 })
+TextAPI.ShowOverheadText(p, "Q3", { duration = 2 })
 ```
 
-Server (from another server mod file):
+Client (stack example):
 ```lua
-TextAPI.ServerShowOverheadText("SomeUsername", "Welcome!", { duration = 5 })
+local p = getPlayer()
+TextAPI.ShowOverheadText(p, "Stack A", { behavior = "stack", color = {1,1,1,1} })
+TextAPI.ShowOverheadText(p, "Stack B", { behavior = "stack", color = {1,0.8,0.2,1} })
+TextAPI.ShowOverheadText(p, "Stack C", { behavior = "stack", color = {0.2,0.9,1.0,1} })
 ```
+
+Client (screen-centered test):
+```lua
+TextAPI.ShowScreenText("TextAPI draw test", { duration = 3 })
+```
+
+Server:
+```lua
+-- Show a message to a specific user
+TextAPI.ServerShowOverheadText("SomeUsername", "Welcome!", { duration = 5 })
+
+-- Clear all client-side queues and active messages
+TextAPI.ClearAll()
+```
+
+## Debugging & testing
+- Enable debug overlay (shows stack indices and anchor cross):
+```lua
+TextAPI.SetDebug(true) -- optional second arg to override stack spacing: TextAPI.SetDebug(true, 24)
+```
+- Test hotkeys (in this repo's sample):
+  - `7`: screen-centered
+  - `8`: overhead
+  - `9`: both
+  - `6`: stack burst (3 at once)
+  - `0`: queue burst (sequential)
 
 ## Notes
-- Drawing uses TextManager's world-to-screen to center text. Adjust the vertical offset in `TextAPI_Client.lua` if needed.
-- In MP, the server sends a command; the client resolves the target by `onlineID`.
-- This is an early version; API surface may change.
+- Overhead positioning anchors at `z + headZ` and then applies a small fixed `pixelOffset` for stability across zoom levels.
+- In MP, the server sends a command and the client resolves the target by `onlineID`.
+- Global pending cap defaults to 500 across all players; you can adjust `TextAPI._globalMaxPending` on the client if needed.
