@@ -1,0 +1,5 @@
+name=Text API
+id=text-api
+description=Lightweight API to display floating text above players' heads. Useful as a dependency for other mods.
+version=0.1.0
+
