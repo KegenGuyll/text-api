@@ -22,6 +22,8 @@ local function addTextForPlayer(playerObj, text, opts)
     text = tostring(text or ""),
     color = o.color,
     scale = o.scale,
+    headZ = o.headZ,
+    pixelOffset = o.pixelOffset,
     expireAt = getTimestampMs() + (o.duration * 1000)
   }
   table.insert(TextAPI._active, entry)
@@ -88,13 +90,12 @@ local function renderText(entry)
   local y = chr:getY()
   local z = chr:getZ()
   local pn = (chr.getPlayerNum and chr:getPlayerNum()) or 0
-  local sx = IsoUtils.XToScreen(x, y, z, 0) - IsoCamera.getOffX() - getPlayerScreenLeft(pn)
-  local sy = IsoUtils.YToScreen(x, y, z, 0) - IsoCamera.getOffY() - getPlayerScreenTop(pn)
+  -- Project a point slightly above the character's head in world space
+  local sx = IsoUtils.XToScreen(x, y, z + (entry.headZ or 0.85), 0) - IsoCamera.getOffX() - getPlayerScreenLeft(pn)
+  local sy = IsoUtils.YToScreen(x, y, z + (entry.headZ or 0.85), 0) - IsoCamera.getOffY() - getPlayerScreenTop(pn)
 
-  -- Offset above head (zoom-aware)
-  local zoom = (getCore() and getCore().getZoom and getCore():getZoom(pn)) or 1.0
-  local yOffset = math.floor(60 / math.max(0.1, zoom))
-  sy = sy - yOffset
+  -- Apply a small constant pixel offset upwards after projection to counter zoom drift
+  sy = sy - (entry.pixelOffset or 14)
 
   -- Visibility bounds check
   local sw = getCore() and getCore():getScreenWidth() or 1920
