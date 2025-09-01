@@ -19,7 +19,7 @@ Client:
   - `text`: string
   - `opts` (all optional):
     - `duration`: number (seconds, default 3)
-    - `color`: `{r,g,b,a}` (0..1, default `{1,1,1,1}`)
+  - `color`: `{r,g,b,a}` (0..1 or 0..255 for RGB, default `{1,1,1,1}`)
     - `behavior`: `"queue"` (default) | `"stack"`
     - `headZ`: world height offset above ground for anchor (default `0.75`)
     - `pixelOffset`: extra pixels upward after projection (default `8`)
@@ -96,13 +96,17 @@ TextAPI.ClearAll()
 ```lua
 TextAPI.SetDebug(true) -- optional second arg to override stack spacing: TextAPI.SetDebug(true, 24)
 ```
-- Test hotkeys (in this repo's sample):
+- Test hotkeys are DISABLED by default. Enable them explicitly:
+```lua
+TextAPI.EnableTestHotkeys(true)   -- enable
+-- TextAPI.EnableTestHotkeys(false) -- disable
+```
+- Available hotkeys (once enabled in this repo's sample):
   - `7`: screen-centered
   - `8`: overhead
   - `9`: both
   - `6`: stack burst (3 at once)
   - `0`: queue burst (sequential)
-  - `U`: screen-centered WRAP demo
   - `I`: overhead WRAP demo (local player)
 
 ## Global settings

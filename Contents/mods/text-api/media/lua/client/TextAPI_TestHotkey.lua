@@ -7,6 +7,7 @@
 -- I  -> Overhead WRAP demo (local player)
 
 if not TextAPI then TextAPI = {} end
+TextAPI._testHotkeysEnabled = TextAPI._testHotkeysEnabled or false -- off by default
 
 local lastTrigger = 0
 local cooldownMs = 300 -- faster iterations
@@ -98,4 +99,20 @@ local function onKeyPressed(key)
   end
 end
 
-Events.OnKeyPressed.Add(onKeyPressed)
+-- Runtime toggle for enabling/disabling the dev hotkeys
+function TextAPI.EnableTestHotkeys(enable)
+  enable = not not enable
+  if enable == TextAPI._testHotkeysEnabled then return end
+  TextAPI._testHotkeysEnabled = enable
+  if enable then
+    Events.OnKeyPressed.Remove(onKeyPressed)
+    Events.OnKeyPressed.Add(onKeyPressed)
+    print("[TextAPI] Test hotkeys: ENABLED")
+  else
+    Events.OnKeyPressed.Remove(onKeyPressed)
+    print("[TextAPI] Test hotkeys: DISABLED")
+  end
+end
+
+-- Do not auto-enable; require explicit call:
+-- TextAPI.EnableTestHotkeys(true)
