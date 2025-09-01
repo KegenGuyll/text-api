@@ -28,6 +28,9 @@ Client:
   - `wrapWidthPx`: number (pixels, default `220` if `wrap=true`) — wrapping width
 - `TextAPI.ShowScreenText(text, opts)`
   - Draws text centered on the screen (for testing).
+- `TextAPI.SetFont(font)`
+  - Sets the UIFont used for measuring (wrapping) and generally recommended for drawing consistency.
+  - Accepts values from `UIFont` (e.g., `UIFont.Small`, `UIFont.Medium`, `UIFont.Large`).
 
 Server:
 - `TextAPI.ServerShowOverheadText(playerOrUsername, text, opts)`
@@ -65,6 +68,20 @@ Client (screen-centered test):
 TextAPI.ShowScreenText("TextAPI draw test", { duration = 3 })
 ```
 
+Client (choose a font):
+```lua
+-- Set the font used for wrapping measurements (and recommended for consistent visuals)
+TextAPI.SetFont(UIFont.Medium)
+
+-- Now draw wrapped overhead text sized according to that font
+local p = getPlayer()
+TextAPI.ShowOverheadText(p, "Wrapped with Medium font size for consistency.", {
+  duration = 3,
+  wrap = true,
+  wrapWidthPx = 260
+})
+```
+
 Server:
 ```lua
 -- Show a message to a specific user
@@ -93,3 +110,4 @@ TextAPI.SetDebug(true) -- optional second arg to override stack spacing: TextAPI
 - In MP, the server sends a command and the client resolves the target by `onlineID`.
 - Global pending cap defaults to 500 across all players; you can adjust `TextAPI._globalMaxPending` on the client if needed.
 - Wrapping uses a greedy word-wrap with the current font; explicit \n breaks are preserved.
+- Fonts: `TextAPI.SetFont(UIFont.X)` lets you lock the font used for wrapping calculations so your wrapped width and visual size stay predictable. Without setting a font, wrapping assumes a default.

@@ -10,6 +10,7 @@ TextAPI._active = TextAPI._active or {}
 TextAPI._queues = TextAPI._queues or {}
 TextAPI._globalMaxPending = TextAPI._globalMaxPending or 500 -- safety cap across all players (pending only)
 TextAPI._debug = TextAPI._debug or { enabled = false, stackSpacingOverride = nil, logGroups = false }
+TextAPI._font = TextAPI._font or (UIFont and UIFont.Medium) or nil
 
 function TextAPI.SetDebug(enabled, stackSpacing)
   TextAPI._debug.enabled = not not enabled
@@ -31,13 +32,15 @@ local function measureWidthPx(text)
   if not tm or not tm.MeasureStringX or not UIFont then
     return (text and #tostring(text) or 0) * 7
   end
-  return tm:MeasureStringX(UIFont.Medium, tostring(text or ""))
+  local font = TextAPI._font or UIFont.Medium
+  return tm:MeasureStringX(font, tostring(text or ""))
 end
 
 local function lineHeightPx()
   local tm = getTextManager()
   if tm and tm.getFontHeight and UIFont then
-    return tm:getFontHeight(UIFont.Medium)
+    local font = TextAPI._font or UIFont.Medium
+    return tm:getFontHeight(font)
   end
   -- Fallback reasonable default
   return 18
@@ -189,6 +192,13 @@ function TextAPI.ShowScreenText(text, opts)
   return true
 end
 
+-- Allow consumers to choose a font explicitly for consistent rendering and wrapping
+function TextAPI.SetFont(font)
+  if UIFont and font then
+    TextAPI._font = font
+  end
+end
+
 -- Renderer: draw entries (either screen-center or above head)
 local function renderText(entry, stackIndex, stackCount, extraStackPx)
   if getTimestampMs() > entry.expireAt then return false end
@@ -233,9 +243,11 @@ local function renderText(entry, stackIndex, stackCount, extraStackPx)
   local x = chr:getX()
   local y = chr:getY()
   local z = chr:getZ()
-  local pn = (chr.getPlayerNum and chr:getPlayerNum()) or 0
-  local sx = IsoUtils.XToScreen(x, y, z + (entry.headZ or 0.85), 0) - IsoCamera.getOffX() - getPlayerScreenLeft(pn)
-  local sy = IsoUtils.YToScreen(x, y, z + (entry.headZ or 0.85), 0) - IsoCamera.getOffY() - getPlayerScreenTop(pn)
+  -- Always use the local player's viewport offsets to match the active render pass.
+  local lp = getPlayer and getPlayer() or nil
+  local pnLocal = (lp and lp.getPlayerNum and lp:getPlayerNum()) or 0
+  local sx = IsoUtils.XToScreen(x, y, z + (entry.headZ or 0.85), 0) - IsoCamera.getOffX() - getPlayerScreenLeft(pnLocal)
+  local sy = IsoUtils.YToScreen(x, y, z + (entry.headZ or 0.85), 0) - IsoCamera.getOffY() - getPlayerScreenTop(pnLocal)
 
   sy = sy - (entry.pixelOffset or 14)
 
