@@ -9,7 +9,14 @@ TextAPI.Version = "0.1.0"
 -- TextAPI.ShowOverheadText(player, text, opts)
 --   player: IsoPlayer or username (server-side)
 --   text: string
---   opts: { duration=seconds (default 3), color={r,g,b,a} 0..1, scale=number, headZ=number (default 0.85), pixelOffset=number (default 14) }
+--   opts: {
+--     duration=seconds (default 3),
+--     color={r,g,b,a} 0..1,
+--     scale=number,
+--     headZ=number (default 0.85),
+--     pixelOffset=number (default 14),
+--     behavior="queue"|"stack" (default "queue")
+--   }
 -- Returns: boolean success
 
 local function clamp01(x) return math.max(0, math.min(1, x)) end
@@ -24,8 +31,11 @@ function TextAPI._normalizeOpts(opts)
   o.scale = tonumber(opts.scale) or 1.0
   -- Height above ground to anchor the text (world Z units); ~0.75 is near head height
   o.headZ = tonumber(opts.headZ) or 0.75
-  -- Extra pixel offset upwards after projecting head position
+  -- Extra pixel offset upwards after projection
   o.pixelOffset = tonumber(opts.pixelOffset) or 8
+  -- Queue behavior: one-at-a-time (queue) or simultaneous (stack)
+  local b = tostring(opts.behavior or "queue"):lower()
+  o.behavior = (b == "stack") and "stack" or "queue"
   return o
 end
 
