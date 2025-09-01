@@ -24,6 +24,8 @@ Client:
     - `headZ`: world height offset above ground for anchor (default `0.75`)
     - `pixelOffset`: extra pixels upward after projection (default `8`)
     - `scale`: reserved for future
+  - `wrap`: boolean (default `false`) — enable word wrapping
+  - `wrapWidthPx`: number (pixels, default `220` if `wrap=true`) — wrapping width
 - `TextAPI.ShowScreenText(text, opts)`
   - Draws text centered on the screen (for testing).
 
@@ -83,8 +85,11 @@ TextAPI.SetDebug(true) -- optional second arg to override stack spacing: TextAPI
   - `9`: both
   - `6`: stack burst (3 at once)
   - `0`: queue burst (sequential)
+  - `U`: screen-centered WRAP demo
+  - `I`: overhead WRAP demo (local player)
 
 ## Notes
 - Overhead positioning anchors at `z + headZ` and then applies a small fixed `pixelOffset` for stability across zoom levels.
 - In MP, the server sends a command and the client resolves the target by `onlineID`.
 - Global pending cap defaults to 500 across all players; you can adjust `TextAPI._globalMaxPending` on the client if needed.
+- Wrapping uses a greedy word-wrap with the current font; explicit \n breaks are preserved.

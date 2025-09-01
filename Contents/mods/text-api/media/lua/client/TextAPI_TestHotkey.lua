@@ -4,6 +4,7 @@
 -- 9  -> both screen-centered and overhead
 -- 6  -> STACK burst (3 messages at once) for local player
 -- 0  -> QUEUE burst (5 messages, cap trims oldest) for local player
+-- I  -> Overhead WRAP demo (local player)
 
 if not TextAPI then TextAPI = {} end
 
@@ -84,6 +85,15 @@ local function onKeyPressed(key)
   if key == Keyboard.KEY_0 then
     lastTrigger = now
     triggerQueueBurst()
+    return
+  end
+
+  if key == Keyboard.KEY_I then
+    lastTrigger = now
+    local p = getPlayer()
+    if not p then return end
+    local long = "Overhead wrapped text: quick brown fox jumps over the lazy dog near the river bank at midnight."
+    TextAPI.ShowOverheadText(p, long, { duration = 4, color = { 1, 0.9, 0.6, 1 }, wrap = true, wrapWidthPx = 260 })
     return
   end
 end

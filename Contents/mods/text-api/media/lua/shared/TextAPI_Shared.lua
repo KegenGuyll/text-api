@@ -16,6 +16,8 @@ TextAPI.Version = "0.1.0"
 --     headZ=number (default 0.75),
 --     pixelOffset=number (default 8),
 --     behavior="queue"|"stack" (default "queue")
+--     wrap=true|false (default false),
+--     wrapWidthPx=number (pixels; default 220 when wrap=true)
 --   }
 -- Returns: boolean success
 
@@ -36,6 +38,9 @@ function TextAPI._normalizeOpts(opts)
   -- Queue behavior: one-at-a-time (queue) or simultaneous (stack)
   local b = tostring(opts.behavior or "queue"):lower()
   o.behavior = (b == "stack") and "stack" or "queue"
+  -- Wrapping
+  o.wrap = (opts.wrap == true)
+  o.wrapWidthPx = tonumber(opts.wrapWidthPx)
   return o
 end
 

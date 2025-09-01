@@ -24,6 +24,73 @@ local function drawStringCentreCompat(sx, sy, text, r, g, b, a)
   getTextManager():DrawStringCentre(sx, sy, text, r, g, b, a)
 end
 
+-- Helpers for measuring and wrapping text
+local function measureWidthPx(text)
+  local tm = getTextManager()
+  -- Fallback: assume average char width ~7 if no API
+  if not tm or not tm.MeasureStringX or not UIFont then
+    return (text and #tostring(text) or 0) * 7
+  end
+  return tm:MeasureStringX(UIFont.Medium, tostring(text or ""))
+end
+
+local function lineHeightPx()
+  local tm = getTextManager()
+  if tm and tm.getFontHeight and UIFont then
+    return tm:getFontHeight(UIFont.Medium)
+  end
+  -- Fallback reasonable default
+  return 18
+end
+
+local function wrapTextWords(text, maxWidth)
+  -- Simple greedy word wrap. Preserves explicit \n breaks.
+  local lines = {}
+  if not text or text == "" then return lines end
+  maxWidth = tonumber(maxWidth) or 220
+
+  local s = tostring(text)
+  local start = 1
+  while true do
+    local ni, nj = string.find(s, "\n", start, true)
+    local paragraph
+    if ni then
+      paragraph = string.sub(s, start, ni - 1)
+      start = nj + 1
+    else
+      paragraph = string.sub(s, start)
+    end
+
+    if paragraph == nil then break end
+    if paragraph == "" then
+      table.insert(lines, "")
+    else
+      local words = {}
+      for w in paragraph:gmatch("%S+") do table.insert(words, w) end
+      if #words == 0 then
+        table.insert(lines, "")
+      else
+        local current = ""
+        for i = 1, #words do
+          local w = words[i]
+          local try = (current == "") and w or (current .. " " .. w)
+          if measureWidthPx(try) <= maxWidth then
+            current = try
+          else
+            if current ~= "" then table.insert(lines, current) end
+            current = w
+          end
+        end
+        if current ~= "" then table.insert(lines, current) end
+      end
+    end
+
+    if not ni then break end
+  end
+
+  return lines
+end
+
 local function makeEntry(playerObjOrNil, text, o)
   return {
     player = playerObjOrNil,
@@ -33,6 +100,8 @@ local function makeEntry(playerObjOrNil, text, o)
     headZ = o.headZ,
     pixelOffset = o.pixelOffset,
     behavior = o.behavior,
+    wrap = o.wrap,
+    wrapWidthPx = o.wrapWidthPx,
     createdAt = getTimestampMs(),
     expireAt = getTimestampMs() + (o.duration * 1000)
   }
@@ -121,7 +190,7 @@ function TextAPI.ShowScreenText(text, opts)
 end
 
 -- Renderer: draw entries (either screen-center or above head)
-local function renderText(entry, stackIndex, stackCount)
+local function renderText(entry, stackIndex, stackCount, extraStackPx)
   if getTimestampMs() > entry.expireAt then return false end
 
   -- Screen center path
@@ -136,8 +205,24 @@ local function renderText(entry, stackIndex, stackCount)
     if TextAPI._debug.enabled and stackIndex then
       textToDraw = textToDraw .. " (" .. tostring(stackIndex) .. "/" .. tostring(stackCount or "?") .. ")"
     end
-    drawStringCentreCompat(sx + 1, sy + 1, textToDraw, 0, 0, 0, a)
-    drawStringCentreCompat(sx, sy, textToDraw, r, g, b, a)
+    -- Screen-center rendering supports wrapping too
+    local lines
+    if entry.wrap then
+      local maxW = entry.wrapWidthPx or 220
+      lines = wrapTextWords(textToDraw, maxW)
+    end
+    local lh = lineHeightPx()
+    if lines and #lines > 1 then
+      local totalH = (#lines - 1) * lh
+      for i, ln in ipairs(lines) do
+        local ly = sy - totalH / 2 + (i - 1) * lh
+        drawStringCentreCompat(sx + 1, ly + 1, ln, 0, 0, 0, a)
+        drawStringCentreCompat(sx, ly, ln, r, g, b, a)
+      end
+    else
+      drawStringCentreCompat(sx + 1, sy + 1, textToDraw, 0, 0, 0, a)
+      drawStringCentreCompat(sx, sy, textToDraw, r, g, b, a)
+    end
     return true
   end
 
@@ -156,8 +241,10 @@ local function renderText(entry, stackIndex, stackCount)
 
   -- Apply stacking offset if multiple entries are shown for the same player
   if stackCount and stackCount > 1 and stackIndex and stackIndex > 0 then
-    local spacing = (TextAPI._debug and TextAPI._debug.stackSpacingOverride) or 14 -- pixels between stacked lines
-    sy = sy - spacing * (stackIndex - 1)
+    -- Base spacing uses font height; allow override via debug
+    local base = lineHeightPx()
+    local spacing = (TextAPI._debug and TextAPI._debug.stackSpacingOverride) or base
+    sy = sy - spacing * (stackIndex - 1) - (extraStackPx or 0)
   end
 
   local sw = getCore() and getCore():getScreenWidth() or 1920
@@ -179,8 +266,24 @@ local function renderText(entry, stackIndex, stackCount)
     drawStringCentreCompat(sx, sy, "+", 1, 0, 0, 1)
   end
 
-  drawStringCentreCompat(sx + 1, sy + 1, textToDraw, 0, 0, 0, a)
-  drawStringCentreCompat(sx, sy, textToDraw, r, g, b, a)
+  -- Multiline render when wrapped
+  local lines
+  if entry.wrap then
+    local maxW = entry.wrapWidthPx or 220
+    lines = wrapTextWords(textToDraw, maxW)
+  end
+  local lh = lineHeightPx()
+  if lines and #lines > 1 then
+    -- Align block so the first line sits at the anchor (sy) and subsequent lines go upward
+    for i, ln in ipairs(lines) do
+      local ly = sy - (i - 1) * lh
+      drawStringCentreCompat(sx + 1, ly + 1, ln, 0, 0, 0, a)
+      drawStringCentreCompat(sx, ly, ln, r, g, b, a)
+    end
+  else
+    drawStringCentreCompat(sx + 1, sy + 1, textToDraw, 0, 0, 0, a)
+    drawStringCentreCompat(sx, sy, textToDraw, r, g, b, a)
+  end
   return true
 end
 
@@ -248,8 +351,18 @@ Events.OnPostRender.Add(function()
   for _, arr in pairs(groups) do
     -- Optional: stable order by createdAt for readability
     table.sort(arr, function(a, b) return (a.createdAt or 0) < (b.createdAt or 0) end)
+    -- Compute cumulative offset to account for wrapped multiline entries above
+    local lh = lineHeightPx()
+    local cumulativePx = 0
     for i, entry in ipairs(arr) do
-      renderText(entry, i, #arr)
+      renderText(entry, i, #arr, cumulativePx)
+      -- Estimate how many extra lines this entry used if wrapping enabled
+      if entry.wrap then
+        local lines = wrapTextWords(entry.text, entry.wrapWidthPx or 220)
+        if lines and #lines > 1 then
+          cumulativePx = cumulativePx + ((#lines - 1) * lh)
+        end
+      end
     end
   end
 end)
