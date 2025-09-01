@@ -105,6 +105,40 @@ TextAPI.SetDebug(true) -- optional second arg to override stack spacing: TextAPI
   - `U`: screen-centered WRAP demo
   - `I`: overhead WRAP demo (local player)
 
+## Global settings
+- These are client-side controls you can set early (e.g., on game start) to tune behavior:
+
+```lua
+-- Run once on startup (client)
+Events.OnGameStart.Add(function()
+  -- Fix the font used for wrapping calculations (affects perceived width/line breaks)
+  TextAPI.SetFont(UIFont.Medium)
+
+  -- Toggle debug overlay and optionally set stack spacing in pixels
+  TextAPI.SetDebug(false)               -- or true
+  -- TextAPI.SetDebug(true, 22)         -- enable + custom spacing
+
+  -- Increase the global safety cap for queued items across all players
+  TextAPI._globalMaxPending = 1000      -- default is 500
+
+  -- Optionally define default options for all calls (duration, color, behavior, etc.)
+  local LimeGreenColor = { 93, 219, 79, 1 }  -- 0..255 color supported; alpha 0..1
+  TextAPI.SetDefaults({
+    color = LimeGreenColor,
+    headZ = 1.5,
+    behavior = 'stack',
+    wrap = true,
+    wrapWidthPx = 300,
+    pixelOffset = 20
+  })
+end)
+```
+
+- Notes:
+  - `SetFont` influences wrapping measurements; drawing uses the engine’s current default font, so choosing a font here keeps wrap width predictable.
+  - `SetDebug(enabled, spacingPx)` overlays indices and a small anchor marker to help tune placement and spacing.
+  - `_globalMaxPending` caps only queued (pending) items across all players; active items are not counted.
+
 ## Notes
 - Overhead positioning anchors at `z + headZ` and then applies a small fixed `pixelOffset` for stability across zoom levels.
 - In MP, the server sends a command and the client resolves the target by `onlineID`.
