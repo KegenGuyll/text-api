@@ -13,6 +13,24 @@ TextAPI._globalMaxPending = TextAPI._globalMaxPending or 500 -- safety cap acros
 TextAPI._debug = TextAPI._debug or { enabled = false, stackSpacingOverride = nil, logGroups = false }
 TextAPI._font = TextAPI._font or (UIFont and UIFont.Medium) or nil
 
+---@class TextAPI_Color
+---@field [1] number @r (0..1)
+---@field [2] number @g (0..1)
+---@field [3] number @b (0..1)
+---@field [4] number @a (0..1)
+
+---@alias TextAPI_Behavior "queue"|"stack"
+
+---@class TextAPI_Opts
+---@field duration? number @seconds (default 3)
+---@field color? TextAPI_Color @RGBA 0..1
+---@field scale? number @reserved
+---@field headZ? number @world units above ground (default 0.75)
+---@field pixelOffset? number @pixels up after projection (default 8)
+---@field behavior? TextAPI_Behavior @queue (default) or stack
+---@field wrap? boolean @enable word wrapping
+---@field wrapWidthPx? number @wrap width in pixels (default 220 if wrap)
+
 function TextAPI.SetDebug(enabled, stackSpacing)
   TextAPI._debug.enabled = not not enabled
   if stackSpacing ~= nil then
@@ -111,6 +129,10 @@ local function onReceiveShowText(args)
 end
 
 -- Public API (client-only direct):
+---@param playerObj IsoPlayer
+---@param text string
+---@param opts TextAPI_Opts|nil
+---@return boolean
 function TextAPI.ShowOverheadText(playerObj, text, opts)
   if not playerObj or not instanceof(playerObj, 'IsoPlayer') then return false end
   enqueueForPlayer(playerObj, text, opts)
@@ -118,12 +140,16 @@ function TextAPI.ShowOverheadText(playerObj, text, opts)
 end
 
 -- Public API (client-only): draw at screen center (for testing)
+---@param text string
+---@param opts TextAPI_Opts|nil
+---@return boolean
 function TextAPI.ShowScreenText(text, opts)
   addScreenText(text, opts)
   return true
 end
 
 -- Allow consumers to choose a font explicitly for consistent rendering and wrapping
+---@param font UIFont
 function TextAPI.SetFont(font)
   if UIFont and font then
     TextAPI._font = font
