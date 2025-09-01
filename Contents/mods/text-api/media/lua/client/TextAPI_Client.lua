@@ -5,6 +5,7 @@ require "ISUI/ISUIElement"
 
 if TextAPI == nil then TextAPI = {} end
 local Shared = require "TextAPI_Shared"
+local Helpers = require "TextAPI_ClientHelpers"
 
 TextAPI._active = TextAPI._active or {}
 TextAPI._queues = TextAPI._queues or {}
@@ -19,80 +20,10 @@ function TextAPI.SetDebug(enabled, stackSpacing)
   end
 end
 
--- Compatibility: In some docs, DrawStringCentre has a UIFont-first overload.
--- This build supports the 8-arg variant (x, y, text, r, g, b, a), which we use here.
-local function drawStringCentreCompat(sx, sy, text, r, g, b, a)
-  getTextManager():DrawStringCentre(sx, sy, text, r, g, b, a)
-end
-
--- Helpers for measuring and wrapping text
-local function measureWidthPx(text)
-  local tm = getTextManager()
-  -- Fallback: assume average char width ~7 if no API
-  if not tm or not tm.MeasureStringX or not UIFont then
-    return (text and #tostring(text) or 0) * 7
-  end
-  local font = TextAPI._font or UIFont.Medium
-  return tm:MeasureStringX(font, tostring(text or ""))
-end
-
-local function lineHeightPx()
-  local tm = getTextManager()
-  if tm and tm.getFontHeight and UIFont then
-    local font = TextAPI._font or UIFont.Medium
-    return tm:getFontHeight(font)
-  end
-  -- Fallback reasonable default
-  return 18
-end
-
-local function wrapTextWords(text, maxWidth)
-  -- Simple greedy word wrap. Preserves explicit \n breaks.
-  local lines = {}
-  if not text or text == "" then return lines end
-  maxWidth = tonumber(maxWidth) or 220
-
-  local s = tostring(text)
-  local start = 1
-  while true do
-    local ni, nj = string.find(s, "\n", start, true)
-    local paragraph
-    if ni then
-      paragraph = string.sub(s, start, ni - 1)
-      start = nj + 1
-    else
-      paragraph = string.sub(s, start)
-    end
-
-    if paragraph == nil then break end
-    if paragraph == "" then
-      table.insert(lines, "")
-    else
-      local words = {}
-      for w in paragraph:gmatch("%S+") do table.insert(words, w) end
-      if #words == 0 then
-        table.insert(lines, "")
-      else
-        local current = ""
-        for i = 1, #words do
-          local w = words[i]
-          local try = (current == "") and w or (current .. " " .. w)
-          if measureWidthPx(try) <= maxWidth then
-            current = try
-          else
-            if current ~= "" then table.insert(lines, current) end
-            current = w
-          end
-        end
-        if current ~= "" then table.insert(lines, current) end
-      end
-    end
-
-    if not ni then break end
-  end
-
-  return lines
-end
+-- Use helpers for drawing and wrapping
+local drawStringCentreCompat = Helpers.drawStringCentreCompat
+local lineHeightPx = Helpers.lineHeightPx
+local wrapTextWords = Helpers.wrapTextWords
 
 local function makeEntry(playerObjOrNil, text, o)
   return {
